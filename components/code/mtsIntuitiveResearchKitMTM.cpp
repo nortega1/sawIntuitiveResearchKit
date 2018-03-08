@@ -555,27 +555,7 @@ void mtsIntuitiveResearchKitMTM::LockOrientation(const vctMatRot3 & orientation)
     // in any case, update desired orientation in local coordinate system
     // mEffortOrientation.Assign(BaseFrame.Rotation().Inverse() * orientation);
     BaseFrame.Rotation().ApplyInverseTo(orientation, mEffortOrientation);
-    // current joint values
     mEffortOrientationJoint.Assign(JointsPID.Position());
-    // vctEulerZYXRotation3 eulerAngles;
-    // vctMatrixRotation3<double> desiredOrientation; <- mEffortOrientation? might not be the same type
-    // current orientation ?
-    // vctAxAnRot3
-    // vctAxisAngleRotation3<double> r12( desiredMTMOrientation );
-    // vctAxisAngleRotation3<double> r22( currentMTMOrientation );
-    // vct3<double> angleDiff = r12.Angle() - r22.Angle();
-    // convert current/desired orientation into axis/angle
-    // find angle difference
-    /*if(angleDiff > 10){
-       vctEulerFromMatrixRotation3(vctEulerZYXRotation3 & eulerRot,
-const vctMatrixRotation3Base<_matrixType> & matrixRot);
-       vctEulerFromMatrixRotation3(eulerAngles, desiredOrientation);
-       assign accordinly to yaw pitch roll (a, b, g)
-       mEffortOrientationJoint[3] = eulerAngles.alpha();
-       mEffortOrientationJoint[4] = eulerAngles.beta();
-       mEffortOrientationJoint[6] = eulerAngles.gamma();
-       
-    */
 }
 
 void mtsIntuitiveResearchKitMTM::UnlockOrientation(void)
