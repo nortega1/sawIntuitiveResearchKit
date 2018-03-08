@@ -74,43 +74,43 @@ void mtsIntuitiveResearchKitMTM::Configure(const std::string & filename)
 robManipulator::Errno mtsIntuitiveResearchKitMTM::InverseKinematics(vctDoubleVec & jointSet,
                                                                     const vctFrm4x4 & cartesianGoal)
 {
-    // pre-feed inverse kinematics with preferred values for joints
-    jointSet[5] = 0.0;
-
-        // variables
-    vctEulerZYXRotation3 eulerAngles;
+    // variables
+    vctEulerZYXRotation3 eulerAngles; //does not get initialized unless in if loop
+    vctMatrixRotation3<double> desiredMTMOrientation;
     vctMatrixRotation3<double> currentMTMOrientation;
     vctAxisAngleRotation3<double> desiredMTMAxisAngle;
     vctAxisAngleRotation3<double> currentMTMAxisAngle;
     double angleDiff;
 
-    // in any case, update current and desired orientation in local coordinate system
-    // mEffortOrientation.Assign(BaseFrame.Rotation().Inverse() * orientation);
-    BaseFrame.Rotation().ApplyInverseTo(orientation, mEffortOrientation);
+    // current and desired orientation in local coordinate system
+    desiredMTMOrientation.From(cartesianGoal.Rotation());
     BaseFrame.Rotation().ApplyInverseTo(CartesianGetLocal.Rotation(), currentMTMOrientation);
     // convert from MatRot3 to AxisAngleRot
-    desiredMTMAxisAngle.From( mEffortOrientation );
-    currentMTMAxisAngle.From( currentMTMOrientation );
+    desiredMTMAxisAngle.From(desiredMTMOrientation);
+    currentMTMAxisAngle.From(currentMTMOrientation);
     angleDiff = desiredMTMAxisAngle.Angle() - currentMTMAxisAngle.Angle();
-
-    // current joint values
-    mEffortOrientationJoint.Assign(JointsPID.Position());
     
     // if angle difference greater than 10 deg, overwrite last joints for better estimate
-    if(angleDiff > 10.0 * cmnPI_180){
+    if(std::abs(angleDiff) > 10.0 * cmnPI_180){
        //vctEulerFromMatrixRotation3(vctEulerZYXRotation3 & eulerRot, const vctMatrixRotation3Base<_matrixType> & matrixRot);
-       vctEulerFromMatrixRotation3(eulerAngles, mEffortOrientation);
+       vctEulerFromMatrixRotation3(eulerAngles, desiredMTMOrientation);
        //assign accordinly to yaw pitch roll (a, b, g)
-       mEffortOrientationJoint[3] = eulerAngles.alpha();
-       mEffortOrientationJoint[4] = eulerAngles.beta();
-       mEffortOrientationJoint[6] = eulerAngles.gamma();
+       /*jointSet[3] = eulerAngles.alpha();
+       jointSet[4] = eulerAngles.beta();
+       jointSet[6] = eulerAngles.gamma();*/
+       
+       
     }
-    
+    // pre-feed inverse kinematics with preferred values for joints
+    jointSet[5] = 0.0;
     std::cerr << CMN_LOG_DETAILS << std::endl
+              << "desiredMTMOrientation:" << std::endl << desiredMTMOrientation << std::endl
+              << "currentMTMOrientation:" << std::endl << currentMTMOrientation << std::endl
               << "Angle diff:" << angleDiff << std::endl
               << "alpha:     " << eulerAngles.alpha() << std::endl
               << "beta:      " << eulerAngles.alpha() << std::endl
               << "gamma:     " << eulerAngles.alpha() << std::endl;
+
     
     if (Manipulator->InverseKinematics(jointSet, cartesianGoal) == robManipulator::ESUCCESS) {
         // find closest solution mod 2 pi
