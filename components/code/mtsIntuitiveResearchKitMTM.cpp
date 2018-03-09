@@ -75,7 +75,7 @@ robManipulator::Errno mtsIntuitiveResearchKitMTM::InverseKinematics(vctDoubleVec
                                                                     const vctFrm4x4 & cartesianGoal)
 {
     // variables
-    vctEulerZYXRotation3 eulerAngles; //does not get initialized unless in if loop
+    vctEulerZYXRotation3 eulerAngles, eulerAngles2; //does not get initialized unless in if loop
     vctMatrixRotation3<double> desiredMTMOrientation;
     vctMatrixRotation3<double> currentMTMOrientation;
     vctAxisAngleRotation3<double> desiredMTMAxisAngle;
@@ -92,24 +92,25 @@ robManipulator::Errno mtsIntuitiveResearchKitMTM::InverseKinematics(vctDoubleVec
     
     // if angle difference greater than 10 deg, overwrite last joints for better estimate
     if(std::abs(angleDiff) > 10.0 * cmnPI_180){
-       //vctEulerFromMatrixRotation3(vctEulerZYXRotation3 & eulerRot, const vctMatrixRotation3Base<_matrixType> & matrixRot);
-       vctEulerFromMatrixRotation3(eulerAngles, desiredMTMOrientation);
-       //assign accordinly to yaw pitch roll (a, b, g)
-       /*jointSet[3] = eulerAngles.alpha();
-       jointSet[4] = eulerAngles.beta();
-       jointSet[6] = eulerAngles.gamma();*/
-       
+        //vctEulerFromMatrixRotation3(vctEulerZYXRotation3 & eulerRot, const vctMatrixRotation3Base<_matrixType> & matrixRot);
+        eulerAngles.From(desiredMTMOrientation);
+        //assign accordinly to yaw pitch roll (a, b, g)
+        /*jointSet[3] = eulerAngles.alpha();
+          jointSet[4] = eulerAngles.beta();
+          jointSet[6] = eulerAngles.gamma();*/
+        std::cerr << CMN_LOG_DETAILS << std::endl
+                  << "Angle diff:" << angleDiff << std::endl
+                  << "alpha:     " << eulerAngles.alpha() << std::endl
+                  << "beta:      " << eulerAngles.beta() << std::endl
+                  << "gamma:     " << eulerAngles.gamma() << std::endl;
        
     }
     // pre-feed inverse kinematics with preferred values for joints
     jointSet[5] = 0.0;
     std::cerr << CMN_LOG_DETAILS << std::endl
               << "desiredMTMOrientation:" << std::endl << desiredMTMOrientation << std::endl
-              << "currentMTMOrientation:" << std::endl << currentMTMOrientation << std::endl
-              << "Angle diff:" << angleDiff << std::endl
-              << "alpha:     " << eulerAngles.alpha() << std::endl
-              << "beta:      " << eulerAngles.alpha() << std::endl
-              << "gamma:     " << eulerAngles.alpha() << std::endl;
+              << "currentMTMOrientation:" << std::endl << currentMTMOrientation << std::endl;
+              
 
     
     if (Manipulator->InverseKinematics(jointSet, cartesianGoal) == robManipulator::ESUCCESS) {
