@@ -78,22 +78,42 @@ robManipulator::Errno mtsIntuitiveResearchKitMTM::InverseKinematics(vctDoubleVec
     vctEulerZYXRotation3 eulerAngles, eulerAngles2; //does not get initialized unless in if loop
     vctMatrixRotation3<double> desiredMTMOrientation;
     vctMatrixRotation3<double> currentMTMOrientation;
+    vctMatrixRotation3<double> fk02;
+    vctMatrixRotation3<double> fk6;
     vctAxisAngleRotation3<double> desiredMTMAxisAngle;
     vctAxisAngleRotation3<double> currentMTMAxisAngle;
-    double angleDiff;
 
-    // current and desired orientation in local coordinate system
-    desiredMTMOrientation.From(cartesianGoal.Rotation());
+    vctEulerZYXRotation3 zeuler;
+    vctMatrixRotation3<double> tipOrientation;
+    vctMatrixRotation3<double> wristOrientation;
+    
+    
+    double angleDiff;
+    vctFrame4x4<double> fkJoint3;
+    vct3 tmp;
+
+    // desired and current, respectively, orientation in local coordinate system
+    desiredMTMOrientation.From(cartesianGoal.Rotation()); 
     BaseFrame.Rotation().ApplyInverseTo(CartesianGetLocal.Rotation(), currentMTMOrientation);
+    
+    // find forward kinematics up to and including q2 and final tool rotation
+    // extract wrist rotation
+    fkJoint3 = Manipulator-> ForwardKinematics(jointSet, 3);
+    fk02.From(fkJoint3.Rotation());
+    zeuler.Assign(-jointSet[6], 0, 0);
+    vctEulerToMatrixRotation3(zeuler, tipOrientation);
+    wristOrientation = fk02.Inverse() * currentMTMOrientation * tipOrientation.Inverse();
+    
     // convert from MatRot3 to AxisAngleRot
     desiredMTMAxisAngle.From(desiredMTMOrientation);
     currentMTMAxisAngle.From(currentMTMOrientation);
     angleDiff = desiredMTMAxisAngle.Angle() - currentMTMAxisAngle.Angle();
+
     
     // if angle difference greater than 10 deg, overwrite last joints for better estimate
     if(std::abs(angleDiff) > 10.0 * cmnPI_180){
         //vctEulerFromMatrixRotation3(vctEulerZYXRotation3 & eulerRot, const vctMatrixRotation3Base<_matrixType> & matrixRot);
-        eulerAngles.From(desiredMTMOrientation);
+        eulerAngles.From(wristOrientation);
         //assign accordinly to yaw pitch roll (a, b, g)
         /*jointSet[3] = eulerAngles.alpha();
           jointSet[4] = eulerAngles.beta();
@@ -107,9 +127,16 @@ robManipulator::Errno mtsIntuitiveResearchKitMTM::InverseKinematics(vctDoubleVec
     }
     // pre-feed inverse kinematics with preferred values for joints
     jointSet[5] = 0.0;
+    eulerAngles.From(wristOrientation);
     std::cerr << CMN_LOG_DETAILS << std::endl
               << "desiredMTMOrientation:" << std::endl << desiredMTMOrientation << std::endl
-              << "currentMTMOrientation:" << std::endl << currentMTMOrientation << std::endl;
+              << "currentMTMOrientation:" << std::endl << currentMTMOrientation << std::endl
+              << "Translation curr: " << std::endl << CartesianGetLocal.Translation() << std::endl
+              << "Translation using FK: " << std::endl << fkJoint3.Translation() << std:: endl
+              << "alpha:    " << eulerAngles.alpha() << std::endl
+              << "beta:     " << eulerAngles.beta() << std::endl
+              << "gamma:    " << eulerAngles.gamma() << std::endl
+              << "Joints:  " << std::endl << jointSet << std::endl;
               
 
     
