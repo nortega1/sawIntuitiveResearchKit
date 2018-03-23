@@ -1282,11 +1282,25 @@ void mtsIntuitiveResearchKitArm::ControlEffortCartesian(void)
     vctEulerToMatrixRotation3(offsetWristEuler, offsetWristRot);
     wristRot = fkBaseToPlatform.Inverse() * fkFull * offsetWristRot.Inverse();
     vctEulerFromMatrixRotation3(wristEuler, wristRot);
-
-    double desired_j3_torque = (wristEuler.alpha() + wristEuler.beta()) * .1;
+    // alpha: j5, beta: j4
+    double desired_j3 = JointsKinematics.Position()[4]
+        + JointsKinematics.Position()[5];
+    if (desired_j3 > 0.0) desired_j3 = 0.0;
+    if (desired_j3 < -1.8) desired_j3 = -1.8;
+    double current_j3 = JointsKinematics.Position()[3];
+    double error_j3 = current_j3 - desired_j3;
+    double desired_j3_torque = -error_j3 * 0.15 - JointsKinematics.Velocity()[3] * 0.10;
 
     counter++;
 
+    // credit: Will Pryor
+    if (desired_j3_torque < -0.2) desired_j3_torque = -0.2;
+    if (desired_j3_torque > 0.2) desired_j3_torque = 0.2;
+    vctDoubleVec enforced_torque(NumberOfJoints(), 0.0);
+    //enforced_torque[3] =0;
+    enforced_torque[3] = desired_j3_torque;
+    //vctDoubleVec enforced_torque_wrench(6);
+    //enforced_torque_wrench.ProductOf(mJacobianPInverseData.PInverse(), enforced_torque);
     if(counter % 1000 == 0){
 
         std::cerr << CMN_LOG_DETAILS << std::endl
@@ -1295,13 +1309,6 @@ void mtsIntuitiveResearchKitArm::ControlEffortCartesian(void)
                   << "gamma:     " << wristEuler.gamma() << std::endl
                   << "platform desired:" << desired_j3_torque << std::endl;
     }
-
-    // credit: Will Pryor
-    vctDoubleVec enforced_torque(NumberOfJoints(), 0.0);
-    enforced_torque[3] = desired_j3_torque;
-    vctDoubleVec enforced_torque_wrench(6);
-    enforced_torque_wrench.ProductOf(mJacobianPInverseData.PInverse(), enforced_torque);
-    
     // body wrench
     if (mWrenchType == WRENCH_BODY) {
         // either using wrench provided by user or cartesian impedance
@@ -1328,16 +1335,18 @@ void mtsIntuitiveResearchKitArm::ControlEffortCartesian(void)
                 force.Assign(mWrenchSet.Force());
             }
         }
-        //JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force);
-        JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force - enforced_torque_wrench);
+        JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force);
         JointExternalEffort = JointExternalEffort + enforced_torque;
+        //JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force - enforced_torque_wrench);
+        //JointExternalEffort = JointExternalEffort + enforced_torque;
     }
     // spatial wrench
     else if (mWrenchType == WRENCH_SPATIAL) {
         force.Assign(mWrenchSet.Force());
-        //JointExternalEffort.ProductOf(mJacobianSpatial.Transpose(), force);
-        JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force - enforced_torque_wrench);
+        JointExternalEffort.ProductOf(mJacobianSpatial.Transpose(), force);
         JointExternalEffort = JointExternalEffort + enforced_torque;
+        //JointExternalEffort.ProductOf(mJacobianBody.Transpose(), force - enforced_torque_wrench);
+        //JointExternalEffort = JointExternalEffort + enforced_torque;
     }
 
     // add gravity compensation if needed
